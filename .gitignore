@@ -1,0 +1,17 @@
+# Local data files
+files/
+*.csv
+*.json
+*.xlsx
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VS Code settings
+.vscode/
+
+#Environment files
+.env
