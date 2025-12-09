@@ -36,7 +36,7 @@ for i in range(1, 11):  # 10 Branches
 df = pd.DataFrame(branches)
 
 # ---- Save locally (optional) ----
-local_file = "branches.csv"
+local_file = "../Data/branches.csv"
 df.to_csv(local_file, index=False)
 print("Generated 10 branches locally.")
 
