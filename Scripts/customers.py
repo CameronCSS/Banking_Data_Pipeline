@@ -1,10 +1,22 @@
+from sqlalchemy import create_engine, text
+from urllib.parse import quote_plus
 from faker import Faker
 from dotenv import load_dotenv
 import os
+import io
 import pandas as pd
 import boto3
 import random
 from datetime import datetime
+import pyarrow.parquet as pq
+
+user = os.getenv("PG_USER")
+password = os.getenv("PG_PASSWORD")
+host = os.getenv("PG_HOST")
+port = "5432"
+db = "postgres"
+
+engine = create_engine(f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}")
 
 fake = Faker()
 
@@ -92,10 +104,45 @@ for i in range(50):
 df = pd.DataFrame(customers)
 
 # ---- Save locally ----
-local_file = "../Data/customers.csv"
+local_file = f"../Data/customers_{datetime.now():%Y%m%d_%H%M%S}.csv"
 df.to_csv(local_file, index=False)
-print("Generated realistic customers.")
+print("Generated customers.")
 
-# ---- Upload to S3 ----
-s3.Bucket(bucket_name).upload_file(local_file, customers_s3_key)
-print(f"Uploaded customers.csv to s3://{bucket_name}/{customers_s3_key}")
+
+# ---- Upload / append to S3 as Parquet ----
+customers_s3_key = "DataLab/customers/customers.parquet"
+
+try:
+    # Check if Parquet exists
+    obj = s3.Bucket(bucket_name).Object(customers_s3_key).get()
+    existing_df = pd.read_parquet(io.BytesIO(obj['Body'].read()))
+    df_s3 = pd.concat([existing_df, df], ignore_index=True)
+    print(f"Appended {len(df_s3)} rows to existing S3 Parquet")
+except s3.meta.client.exceptions.NoSuchKey:
+    # No existing file
+    df_s3 = df
+    print("No existing Parquet on S3, creating new one")
+
+# Convert to Parquet buffer
+parquet_buffer = io.BytesIO()
+df_s3.to_parquet(parquet_buffer, index=False, engine="pyarrow")
+
+# Upload to S3
+s3.Bucket(bucket_name).put_object(
+    Key=customers_s3_key,
+    Body=parquet_buffer.getvalue()
+)
+print(f"Uploaded customers.parquet to s3")
+
+
+# ---- Write customers to Postgres ----
+try:
+    df.to_sql("customers", engine, if_exists="append", index=False)
+    print("Inserted customers into Postgres successfully!")
+except Exception as e:
+    print("Failed to insert into Postgres:", e)
+
+
+with engine.connect() as conn:
+    result = conn.execute(text("SELECT COUNT(*) FROM customers;"))
+    print(f"Rows in customers table: {result.scalar()}")
