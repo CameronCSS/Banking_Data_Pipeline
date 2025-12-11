@@ -21,4 +21,5 @@ airflow/logs/
 airflow/__pycache__/
 airflow/airflow.db
 airflow/plugins/__pycache__/
-postgres/data/
+airflow/postgres/data/
+/postgres/data/
