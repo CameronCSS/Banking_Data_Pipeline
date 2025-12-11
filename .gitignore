@@ -15,3 +15,10 @@ __pycache__/
 
 #Environment files
 .env
+
+#Airflow files
+airflow/logs/
+airflow/__pycache__/
+airflow/airflow.db
+airflow/plugins/__pycache__/
+postgres/data/
