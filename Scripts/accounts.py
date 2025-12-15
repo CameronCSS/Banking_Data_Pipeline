@@ -1,114 +1,132 @@
 from faker import Faker
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timezone
 import os
-import random
-import pandas as pd
+import json
 import boto3
-import io
-from sqlalchemy import create_engine, text
+import random
+import uuid
 
 # ---- Setup ----
 fake = Faker()
 load_dotenv()
 
-# ---- Postgres setup ----
-user = os.getenv("PG_USER")
-password = os.getenv("PG_PASSWORD")
-host = os.getenv("PG_HOST")
-port = "5432"
-db = "postgres"
-
-engine = create_engine(f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}", future=True)
-
-# ---- S3 setup (backup only) ----
-s3 = boto3.resource(
+s3 = boto3.client(
     "s3",
     endpoint_url=os.getenv("STORAGE_ENDPOINT"),
     aws_access_key_id=os.getenv("STORAGE_ACCESS_KEY"),
-    aws_secret_access_key=os.getenv("STORAGE_SECRET_KEY")
+    aws_secret_access_key=os.getenv("STORAGE_SECRET_KEY"),
 )
+
 bucket_name = os.getenv("STORAGE_BUCKET")
-accounts_s3_key_parquet = "DataLab/accounts/accounts.parquet"
 
-# ---- Load customers from Postgres ----
-with engine.connect() as conn:
-    customers_df = pd.read_sql(
-        sql=text("SELECT customer_id, home_branch_id, customer_since FROM customers;"),
-        con=conn
-    )
+# Bronze prefixes
+accounts_prefix = "bronze/accounts_raw/"
+cust_prefix = "bronze/customers_raw/"
+branches_prefix = "bronze/branches_raw/"
 
-customers_df["customer_since"] = pd.to_datetime(customers_df["customer_since"]).dt.date
+# ---- Helpers ----
+def random_balance():
+    return round(random.uniform(-500, 30000), 2)  # overdrafts allowed
 
-# ---- Unique account ID generator ----
-generated_ids = set()
-def generate_account_id(branch_id):
-    while True:
-        branch_part = str(branch_id).zfill(3)
-        random_part = str(random.randint(10**8, 10**9 - 1))
-        acct_id = branch_part + random_part
-        if acct_id not in generated_ids:
-            generated_ids.add(acct_id)
-            return acct_id
-
-def generate_account_number():
-    return str(random.randint(10**10, 10**11 - 1))
-
-def assign_account_types():
+def random_account_types():
     roll = random.random()
-    if roll < 0.50:
+    if roll < 0.55:
         return ["Checking"]
-    elif roll < 0.70:
+    elif roll < 0.80:
         return ["Savings"]
     else:
         return ["Checking", "Savings"]
 
-def balance_for_type(account_type):
-    if account_type == "Checking":
-        return round(random.uniform(50, 7000), 2)
-    return round(random.uniform(200, 25000), 2)
+# ---- Load customer IDs from bronze customers ----
+cust_ids = set()
 
-# ---- Generate accounts ----
-accounts = []
-for _, row in customers_df.iterrows():
-    customer_id = row["customer_id"]
-    customer_since = row["customer_since"]
-    home_branch_id = row["home_branch_id"]
-    account_types = assign_account_types()
+resp = s3.list_objects_v2(Bucket=bucket_name, Prefix=cust_prefix)
+for obj in resp.get("Contents", []):
+    body = s3.get_object(Bucket=bucket_name, Key=obj["Key"])["Body"].read()
+    for line in body.decode("utf-8").splitlines():
+        record = json.loads(line)
+        cust_ids.add(record["customer"]["customer_id"])
 
-    for acct_type in account_types:
-        accounts.append({
-            "account_id": generate_account_id(home_branch_id),
-            "account_number": generate_account_number(),
-            "customer_id": customer_id,
-            "account_type": acct_type,
-            "open_date": fake.date_between(start_date=customer_since, end_date=datetime.today().date()),
-            "balance": balance_for_type(acct_type),
-            "branch_id": home_branch_id
-        })
+if not cust_ids:
+    raise ValueError("No customer IDs found in bronze customers data")
 
-accounts_df = pd.DataFrame(accounts)
+# ---- Load existing account customer IDs ----
+customers_with_accounts = set()
 
-# ---- Save to S3 backup ----
-buffer = io.BytesIO()
-accounts_df.to_parquet(buffer, index=False, engine="pyarrow")
-s3.Bucket(bucket_name).put_object(Key=accounts_s3_key_parquet, Body=buffer.getvalue())
-print("Uploaded accounts.parquet to S3 (backup).")
+resp = s3.list_objects_v2(Bucket=bucket_name, Prefix=accounts_prefix)
+for obj in resp.get("Contents", []):
+    body = s3.get_object(Bucket=bucket_name, Key=obj["Key"])["Body"].read()
+    for line in body.decode("utf-8").splitlines():
+        record = json.loads(line)
+        customers_with_accounts.add(record["customer"]["customer_id"])
 
-# ---- Ensure accounts table exists and insert into Postgres ----
-with engine.begin() as conn:
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS accounts (
-            account_id      VARCHAR(20) PRIMARY KEY,
-            account_number  VARCHAR(20) UNIQUE,
-            customer_id     BIGINT REFERENCES customers(customer_id),
-            account_type    VARCHAR(50),
-            open_date       DATE,
-            balance         NUMERIC(12,2),
-            branch_id       INT REFERENCES branches(branch_id)
-        );
-    """))
+# ---- Load branch IDs ----
+branch_ids = []
 
-    # Pandas to_sql now uses the connection from SQLAlchemy 2.x
-    accounts_df.to_sql("accounts", conn, if_exists="append", index=False, method="multi")
-    print(f"Inserted {len(accounts_df)} accounts into Postgres successfully!")
+resp = s3.list_objects_v2(Bucket=bucket_name, Prefix=branches_prefix)
+for obj in resp.get("Contents", []):
+    body = s3.get_object(Bucket=bucket_name, Key=obj["Key"])["Body"].read()
+    for line in body.decode("utf-8").splitlines():
+        record = json.loads(line)
+        branch_ids.append(record["branch"]["branch_id"])
+
+if not branch_ids:
+    raise ValueError("No branch IDs found in bronze branches data")
+
+# ---- Determine eligible customers ----
+eligible_customers = cust_ids - customers_with_accounts
+
+# ---- Generate ONE account per eligible customer ----
+events = []
+
+for cust_id in eligible_customers:
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "event_type": "account_opened",
+        "event_ts": datetime.now(timezone.utc).isoformat(),
+
+        "account": {
+            "account_id": str(uuid.uuid4()),
+            "account_number": str(random.randint(10**9, 10**11)),
+            "account_types": random_account_types(),
+            "open_date": fake.date_between(start_date="-30d", end_date="today").isoformat(),
+            "balance": random_balance(),
+            "currency": random.choice(["USD", "USD", "USD", "EUR"]),
+            "interest_rate": round(random.uniform(0.01, 4.5), 2),
+            "status": random.choice(["ACTIVE", "ACTIVE", "FROZEN", "CLOSED"]),
+        },
+
+        "customer": {
+            "customer_id": cust_id,
+            "segment": random.choice(["Retail", "SMB", "VIP"]),
+        },
+
+        "branch": {
+            "branch_id": random.choice(branch_ids),
+            "teller_id": random.randint(1000, 9999),
+        },
+
+        # intentional noise
+        "source_system": "account_generator_v1",
+        "batch_id": str(uuid.uuid4()),
+        "ingestion_ts": datetime.now(timezone.utc).isoformat(),
+    }
+
+    events.append(event)
+
+# ---- Write JSONL batch ----
+if events:
+    key = f"{accounts_prefix}batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+    body = "\n".join(json.dumps(e) for e in events)
+
+    s3.put_object(
+        Bucket=bucket_name,
+        Key=key,
+        Body=body.encode("utf-8"),
+    )
+
+# ---- Logging (IMPORTANT) ----
+print(f"Total customers found: {len(cust_ids)}")
+print(f"Customers already with accounts: {len(customers_with_accounts)}")
+print(f"New accounts created this run: {len(events)}")

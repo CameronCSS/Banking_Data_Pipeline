@@ -1,125 +1,115 @@
-from sqlalchemy import create_engine, text
-from urllib.parse import quote_plus
 from faker import Faker
 from dotenv import load_dotenv
 import os
-import io
-import pandas as pd
+import json
 import boto3
+import uuid
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
-# ---- Load env ----
-load_dotenv()
+# ---- Setup ----
 fake = Faker()
+load_dotenv()
 
-# ---- Postgres setup ----
-user = os.getenv("PG_USER")
-password = quote_plus(os.getenv("PG_PASSWORD"))
-host = os.getenv("PG_HOST")
-port = "5432"
-db = "postgres"
-engine = create_engine(f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}")
-
-# ---- Hetzner S3 setup ---- (backup only) ----
-s3 = boto3.resource(
+s3 = boto3.client(
     "s3",
     endpoint_url=os.getenv("STORAGE_ENDPOINT"),
     aws_access_key_id=os.getenv("STORAGE_ACCESS_KEY"),
     aws_secret_access_key=os.getenv("STORAGE_SECRET_KEY")
 )
+
 bucket_name = os.getenv("STORAGE_BUCKET")
-branches_s3_key = "DataLab/branches/branches.csv"
-customers_s3_key = "DataLab/customers/customers.parquet"
 
-# ---- Load branches from S3 (still needed for customer assignment) ----
-branches_local = "../Data/branches.csv"
-s3.Bucket(bucket_name).download_file(branches_s3_key, branches_local)
-branches = pd.read_csv(branches_local)
+# Bronze landing zone
+cust_prefix = "bronze/customers_raw/"
+branches_prefix = "bronze/branches_raw/"
 
-# ---- Load existing customers from Postgres for email uniqueness ----
-with engine.connect() as conn:
-    table_exists = conn.execute(
-        text("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='customers');")
-    ).scalar()
+# ---- Helper generators (intentionally imperfect) ----
+def random_credit_score():
+    return random.randint(250, 900)  # invalid values on purpose
 
-    if table_exists:
-        existing_customers = pd.read_sql(
-            text("SELECT email FROM customers;"),
-            con=conn
-        )
-        existing_emails = set(existing_customers["email"]) if not existing_customers.empty else set()
-    else:
-        existing_emails = set()
+def random_income():
+    return random.choice([
+        random.randint(15000, 30000),
+        random.randint(30000, 80000),
+        random.randint(80000, 200000),
+        None
+    ])
+
+def random_employment():
+    return random.choice([
+        "Employed",
+        "Self-Employed",
+        "Unemployed",
+        "Student",
+        "Retired",
+        "Unknown",
+        None
+    ])
+    
+# ---- Load branch IDs from bronze ----
+branch_ids = []
+
+response = s3.list_objects_v2(Bucket=bucket_name, Prefix=branches_prefix)
+for obj in response.get("Contents", []):
+    body = s3.get_object(Bucket=bucket_name, Key=obj["Key"])["Body"].read()
+    for line in body.decode("utf-8").splitlines():
+        record = json.loads(line)
+        branch_ids.append(record["branch"]["branch_id"])
+
+if not branch_ids:
+    raise ValueError("No branch IDs found in bronze branches data")
 
 
-# ---- Helper functions ----
-def realistic_credit_score():
-    return max(300, min(int(random.gauss(680, 60)), 850))
+# ---- Generate customer events ----
+events = []
 
-def realistic_income():
-    brackets = [(20000,40000),(40000,70000),(70000,120000),(120000,200000)]
-    low, high = random.choice(brackets)
-    return random.randint(low, high)
+for _ in range(150):
+    dob = fake.date_between(start_date="-90y", end_date="-16y")
 
-def realistic_employment():
-    return random.choices(
-        ["Employed","Self-Employed","Unemployed","Student","Retired"],
-        weights=[50,15,10,15,10]
-    )[0]
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "event_type": random.choice(["customer_created", "customer_updated"]),
+        "event_ts": datetime.now(timezone.utc).isoformat(),
 
-def realistic_contact():
-    return random.choice(["Email","Phone","SMS"])
+        "customer": {
+            "customer_id": random.getrandbits(48),
+            "first_name": fake.first_name(),
+            "last_name": fake.last_name(),
+            "email": fake.email(),  # duplicates allowed
+            "phone": fake.phone_number(),
+            "date_of_birth": dob.isoformat(),
+            "gender": random.choice(["Male", "Female", "Other", None]),
+            "married": random.choice([True, False, "Unknown"]),
+            "employment_status": random_employment(),
+            "annual_income": random_income(),
+            "credit_score": random_credit_score(),
+            "home_branch_id": random.choice(branch_ids),
+            "customer_since": fake.date_between(start_date="-30d", end_date="today").isoformat(), # New in the last 30 days
+            "preferred_contact_method": random.choice(
+                ["Email", "Phone", "SMS", "Mail", None]
+            ),
+            # extra junk fields
+            "browser": fake.user_agent(),
+            "ip_address": fake.ipv4_public(),
+            "marketing_opt_in": random.choice([True, False, None])
+        },
 
-def generate_customer_id():
-    return random.getrandbits(48)
+        "source_system": "customer_generator",
+        "ingestion_ts": datetime.now(timezone.utc).isoformat()
+    }
 
-# ---- Generate Customers ----
-customers = []
-for _ in range(50):
-    first = fake.first_name()
-    last = fake.last_name()
-    email = f"{first.lower()}.{last.lower()}@{fake.free_email_domain()}"
+    events.append(event)
 
-    while email in existing_emails:
-        first = fake.first_name()
-        last = fake.last_name()
-        email = f"{first.lower()}.{last.lower()}@{fake.free_email_domain()}"
-    existing_emails.add(email)
+# ---- Write JSON lines to S3 ----
+key = f"{cust_prefix}batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
 
-    dob = fake.date_between(start_date="-80y", end_date="-18y")
-    age = (datetime.now().date() - dob).days // 365
-    income = realistic_income()
-    credit = realistic_credit_score()
+body = "\n".join(json.dumps(e) for e in events)
 
-    customers.append({
-        "customer_id": generate_customer_id(),
-        "full_name": f"{first} {last}",
-        "email": email,
-        "phone": fake.phone_number(),
-        "date_of_birth": dob,
-        "age": age,
-        "gender": random.choice(["Male","Female","Other"]),
-        "street_address": fake.street_address(),
-        "city": fake.city(),
-        "state": fake.state_abbr(),
-        "zip_code": fake.zipcode(),
-        "home_branch_id": random.choice(branches["branch_id"]),
-        "customer_since": fake.date_between(start_date="-10y", end_date="today"),
-        "employment_status": realistic_employment(),
-        "annual_income": income,
-        "credit_score": credit,
-        "preferred_contact_method": realistic_contact()
-    })
+s3.put_object(
+    Bucket=bucket_name,
+    Key=key,
+    Body=body.encode("utf-8")
+)
 
-df = pd.DataFrame(customers)
-
-# ---- Save to S3 backup ----
-buffer = io.BytesIO()
-df.to_parquet(buffer, index=False, engine="pyarrow")
-s3.Bucket(bucket_name).put_object(Key=customers_s3_key, Body=buffer.getvalue())
-print("Uploaded customers.parquet to S3 (backup).")
-
-# ---- Insert into Postgres ----
-df.to_sql("customers", engine, if_exists="append", index=False, method="multi")
-print("Inserted customers into Postgres successfully!")
+print(f"Wrote {len(events)} raw customer events to s3://{bucket_name}/{key}")

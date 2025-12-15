@@ -1,18 +1,16 @@
 from faker import Faker
 from dotenv import load_dotenv
 import os
-import pandas as pd
+import json
 import boto3
-import io
-from sqlalchemy import create_engine, text
-from urllib.parse import quote_plus
+from datetime import datetime, timezone
+import uuid
 
-# ---- Faker setup ----
+# ---- Setup ----
 fake = Faker()
 load_dotenv()
 
-# ---- S3 Setup ----
-s3 = boto3.resource(
+s3 = boto3.client(
     's3',
     endpoint_url=os.getenv('STORAGE_ENDPOINT'),
     aws_access_key_id=os.getenv('STORAGE_ACCESS_KEY'),
@@ -20,74 +18,47 @@ s3 = boto3.resource(
 )
 
 bucket_name = os.getenv('STORAGE_BUCKET')
-s3_key_csv = 'DataLab/branches/branches.csv'
-s3_key_parquet = 'DataLab/branches/branches.parquet'
 
-# ---- Postgres Setup ----
-user = os.getenv("PG_USER")
-password = os.getenv("PG_PASSWORD")
-host = os.getenv("PG_HOST")
-port = "5432"
-db = "postgres"
+# Bronze landing zone (RAW)
+branches_prefix = "bronze/branches_raw/"
 
-engine = create_engine(f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}")
+# ---- Generate branch events ----
+events = []
 
-# ---- Ensure local data folder exists ----
-os.makedirs("../Data", exist_ok=True)
+now_utc = datetime.now(timezone.utc)
 
-# ---- Generate branch data ----
-branches = []
-for i in range(1, 11):  # 10 branches
-    branches.append({
-        "branch_id": str(i),  # store as string for consistency
-        "branch_name": f"{fake.city()} Branch",
-        "address": fake.street_address(),
-        "city": fake.city(),
-        "state": fake.state_abbr()
-    })
+for _ in range(3):
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "event_type": "branch_created",
+        "event_ts": now_utc.isoformat(),
+        "branch": {
+            "branch_id": str(uuid.uuid4()),
+            "branch_name": f"{fake.city()} Branch",
+            "address": fake.street_address(),
+            "city": fake.city(),
+            "state": fake.state_abbr(),
+            "open_date": fake.date_between(start_date="-30d", end_date="today").isoformat(), # New in the last 30 days
+            "employee_count": fake.random_int(min=5, max=50),
+            "branch_manager": fake.name(),
+            "phone_number": fake.phone_number(),
+            "timezone": fake.timezone()
+        },
+        "source_system": "branch_generator",
+        "ingestion_ts": now_utc.isoformat()
+    }
 
-df = pd.DataFrame(branches)
+    events.append(event)
 
-# ---- Save locally as CSV ----
-local_file = "../Data/branches.csv"
-df.to_csv(local_file, index=False)
-print("Generated 10 branches locally.")
+# ---- Write events as JSON lines ----
+key = f"{branches_prefix}batch_{now_utc.strftime('%Y%m%d_%H%M%S')}.json"
 
-# ---- Upload CSV to S3 ----
-s3.Bucket(bucket_name).upload_file(local_file, s3_key_csv)
-print(f"Uploaded branches.csv to s3://{bucket_name}/{s3_key_csv}")
+body = "\n".join(json.dumps(e) for e in events)
 
-# ---- Upload / append to S3 as Parquet ----
-try:
-    obj = s3.Bucket(bucket_name).Object(s3_key_parquet).get()
-    existing_df = pd.read_parquet(io.BytesIO(obj['Body'].read()))
-    combined_df = pd.concat([existing_df, df], ignore_index=True)
-    print(f"Appended {len(df)} branches to existing Parquet on S3.")
-except s3.meta.client.exceptions.NoSuchKey:
-    combined_df = df
-    print("No existing branches Parquet on S3, creating new one.")
+s3.put_object(
+    Bucket=bucket_name,
+    Key=key,
+    Body=body.encode("utf-8")
+)
 
-parquet_buffer = io.BytesIO()
-combined_df.to_parquet(parquet_buffer, index=False, engine="pyarrow")
-s3.Bucket(bucket_name).put_object(Key=s3_key_parquet, Body=parquet_buffer.getvalue())
-print(f"Uploaded branches.parquet to s3://{bucket_name}/{s3_key_parquet}")
-
-# ---- Create / Append to Postgres ----
-with engine.connect() as conn:
-    for _, row in df.iterrows():
-        stmt = text("""
-            INSERT INTO branches (branch_id, branch_name, address, city, state)
-            VALUES (:branch_id, :branch_name, :address, :city, :state)
-            ON CONFLICT (branch_id) DO NOTHING
-        """)
-        conn.execute(stmt, {
-            "branch_id": str(row["branch_id"]),
-            "branch_name": row["branch_name"],
-            "address": row["address"],
-            "city": row["city"],
-            "state": row["state"]
-        })
-    conn.commit()
-    # Optional: row count check
-    result = conn.execute(text("SELECT COUNT(*) FROM branches;"))
-    print(f"Rows in branches table: {result.scalar()}")
+print(f"Wrote {len(events)} raw branch events to s3://{bucket_name}/{key}")
