@@ -54,5 +54,7 @@ print("About to show() ...")
 df.limit(5).show(truncate=False)
 
 print("Done.")
+
+
 spark.stop()
 
