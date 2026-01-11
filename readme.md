@@ -185,7 +185,7 @@ Gold-layer datasets are structured to support:
 <a id="license"></a>
 ## License
 
-Distributed under the MIT License. See [LICENSE.txt](https://github.com/CameronCSS/Banking_Data_Pipeline/blob/main/LICENSE.txtt) for more information.
+Distributed under the MIT License. See [LICENSE.txt](https://github.com/CameronCSS/Banking_Data_Pipeline/blob/main/LICENSE.txt) for more information.
 
 <a id="contact"></a>
 ## 💬 Connect With Me
