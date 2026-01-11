@@ -30,7 +30,7 @@
   <summary>Table of Contents</summary>
   <ol>
     <li>
-      <a href="#about-the-project">About The Project</a>
+      <a href="#about">About The Project</a>
       <ul>
         <li><a href="#key-features">Key Features</a></li>
       </ul>
@@ -38,23 +38,25 @@
     <li>
       <a href="#architecture">Architecture</a>
       <ul>
-        <li><a href="#bronze-raw">Bronze (Raw)</a></li>
-        <li><a href="#silver-clean--validated">Silver (Clean & Validated)</a></li>
-        <li><a href="#gold-curated--analytics-ready">Gold (Curated & Analytics-Ready)</a></li>
+        <li><a href="#bronze">Bronze (Raw)</a></li>
+        <li><a href="#silver">Silver (Clean & Validated)</a></li>
+        <li><a href="#gold">Gold (Curated & Analytics-Ready)</a></li>
       </ul>
     </li>
-    <li><a href="#data-quality--validation">Data Quality & Validation</a></li>
+    <li><a href="#data-quality">Data Quality & Validation</a></li>
     <li><a href="#outputs">Outputs</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#license">License</a></li>
-    <li><a href="#-connect-with-me">Connect With Me</a></li>
+    <li><a href="#contact">Connect With Me</a></li>
   </ol>
 </details>
+
 
 
 ---
 
 <!-- ABOUT THE PROJECT -->
+<a id="about"></a>
 # About The Project
 
 This project simulates a **banking transaction data pipeline** using **Python + Apache Spark** with an **S3-backed data lake**. 
@@ -63,7 +65,7 @@ It demonstrates how raw transactional data can be ingested, validated, transform
 
 ## **Tech Stack:** Python, PySpark, Apache Spark, S3 storage
 
-
+<a id="key-features"></a>
 ### Key Features
 
 - **Batch ingestion** of banking-style transaction data into an S3-backed Bronze layer
@@ -75,11 +77,12 @@ It demonstrates how raw transactional data can be ingested, validated, transform
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-
+<a id="architecture"></a>
 # Architecture
 
 The pipeline follows a lakehouse pattern where each layer has a clear responsibility.
 
+<a id="bronze"></a>
 ## Bronze (Raw)
 
 **Purpose**
@@ -91,6 +94,7 @@ The pipeline follows a lakehouse pattern where each layer has a clear responsibi
 
 ---
 
+<a id="silver"></a>
 ## Silver (Clean & Validated)
 
 **Purpose**
@@ -105,6 +109,7 @@ The pipeline follows a lakehouse pattern where each layer has a clear responsibi
 
 ---
 
+<a id="gold"></a>
 ## Gold (Curated & Analytics-Ready)
 
 **Purpose**
@@ -127,6 +132,7 @@ The pipeline follows a lakehouse pattern where each layer has a clear responsibi
 
 ---
 
+<a id="data-quality"></a>
 # Data Quality & Validation
 
 The pipeline applies checks to prevent bad data from reaching curated datasets.
@@ -144,6 +150,7 @@ These checks keep the Silver and Gold layers consistent and trustworthy for down
 
 ---
 
+<a id="outputs"></a>
 ## Outputs
 
 **Example S3 layout:**
@@ -163,6 +170,7 @@ Gold-layer datasets are structured to support:
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+<a id="roadmap"></a>
 ## Roadmap
 
  - Add orchestration (Airflow / Dagster)
@@ -173,12 +181,12 @@ Gold-layer datasets are structured to support:
  - Add CDC-style ingestion simulation
 
 
-
+<a id="license"></a>
 ## License
 
 Distributed under the MIT License. See [LICENSE.txt](https://git.camcodes.dev/Cameron/Data_Lab/src/branch/main/LICENSE.txt) for more information.
 
-
+<a id="contact"></a>
 ## 💬 Connect With Me
 
 
