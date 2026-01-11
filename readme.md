@@ -36,22 +36,11 @@
         <li><a href="#gold-curated--analytics-ready">Gold (Curated & Analytics-Ready)</a></li>
       </ul>
     </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-        <li><a href="#configuration">Configuration</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
     <li><a href="#data-quality--validation">Data Quality & Validation</a></li>
     <li><a href="#outputs">Outputs</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
   </ol>
 </details>
 
@@ -168,36 +157,27 @@ Downstream analytics and metric definitions
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Roadmap
+## Roadmap
 
- Add orchestration (Airflow / Dagster)
+ - Add orchestration (Airflow / Dagster)
+ - Implement incremental processing and partitioning
+ - Add automated pipeline health checks (row counts, null rates, duplicates)
+ - Add unit tests for validation logic
+ - Add monitoring, alerting, and run logs
+ - Add CDC-style ingestion simulation
 
- Implement incremental processing and partitioning
 
- Add automated pipeline health checks (row counts, null rates, duplicates)
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
- Add unit tests for validation logic
-
- Add monitoring, alerting, and run logs
-
- Add CDC-style ingestion simulation
-
-See the open issues
- for a full list of proposed features and known issues.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>License
+## License
 
 Distributed under the MIT License. See LICENSE.txt for more information.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-Contact
 
-Cameron Seamons
-Ogden, Utah
-Email: CameronSeamons@gmail.com
+## 💬 Connect With Me
 
-LinkedIn: linkedin_username
 
-Project Link: https://github.com/github_username/repo_name
+<span>[![LinkedIn](https://github.com/user-attachments/assets/d1d2f882-0bda-46cb-9b7c-9f01eff81da9)](https://www.linkedin.com/in/cameron-css/) [![Portfolio](https://github.com/user-attachments/assets/eb2e9672-e765-442f-89d7-149c7e7db0a8)](https://CamDoesData.com) [![Kaggle](https://github.com/user-attachments/assets/ef5fbcf3-067a-4bb1-b5cd-fd4e369df980)](https://www.kaggle.com/cameronseamons) [![Email](https://github.com/user-attachments/assets/12af3cba-137e-498f-abe1-c66108e5e57a)](mailto:CameronSeamons@gmail.com)  [![Resume](https://github.com/user-attachments/assets/1ee4d4d1-22cd-42ff-b2e4-be7185269306)](https://drive.google.com/file/d/1YaM4hDtt2-79ShBVTN06Y3BU79LvFw6J/view?usp=sharing)</span>
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p> 
