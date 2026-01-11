@@ -175,7 +175,7 @@ Gold-layer datasets are structured to support:
 
 ## License
 
-Distributed under the MIT License. See LICENSE.txt for more information.
+Distributed under the MIT License. See [LICENSE.txt](https://git.camcodes.dev/Cameron/Data_Lab/src/branch/main/LICENSE.txt) for more information.
 
 
 ## 💬 Connect With Me
