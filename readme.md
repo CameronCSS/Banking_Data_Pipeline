@@ -47,9 +47,10 @@
     <li><a href="#outputs">Outputs</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
+    <li><a href="#-connect-with-me">Connect With Me</a></li>
   </ol>
 </details>
+
 
 ---
 
