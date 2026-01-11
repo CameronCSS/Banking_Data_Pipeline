@@ -7,15 +7,22 @@
 <br />
 
 
-<h3 align="center">Banking Transaction Pipeline (Python • Spark • S3)</h3>
+<h2 align="center">Banking Transaction Pipeline <br> (Python • Spark • S3)</h2>
 
-  <p align="center">
-    A Python-based Spark pipeline that ingests banking-style transactions into S3 and processes them through a Bronze → Silver → Gold architecture with data quality validation.
-    <br />
+<p align="center">
+  <img height="250" src="https://git.camcodes.dev/Cameron/Data_Lab/raw/branch/main/images/Banking.jpg" alt="Banking pipeline diagram" />
+</p>
 
-  </p>
-</div>
 
+    A Python-based Spark pipeline that ingests banking transactions into S3.
+    Bronze → Silver → Gold architecture with data quality validation.
+
+
+
+> [!NOTE]
+> This project is intended to demonstrate **analytics engineering and lakehouse design patterns**
+
+---
 
 
 <!-- TABLE OF CONTENTS -->
@@ -44,12 +51,17 @@
   </ol>
 </details>
 
-
+---
 
 <!-- ABOUT THE PROJECT -->
-## About The Project
+# About The Project
 
-This project simulates a **banking transaction data pipeline** using **Python + Apache Spark** with an **S3-backed data lake**. It demonstrates how raw transactional data can be ingested, validated, transformed, and curated into analytics-ready datasets using a **Bronze → Silver → Gold** architecture.
+This project simulates a **banking transaction data pipeline** using **Python + Apache Spark** with an **S3-backed data lake**. 
+
+It demonstrates how raw transactional data can be ingested, validated, transformed, and curated into analytics-ready datasets using a **Bronze → Silver → Gold** architecture.
+
+## **Tech Stack:** Python, PySpark, Apache Spark, S3 storage
+
 
 ### Key Features
 
@@ -63,11 +75,11 @@ This project simulates a **banking transaction data pipeline** using **Python + 
 
 
 
-## Architecture
+# Architecture
 
 The pipeline follows a lakehouse pattern where each layer has a clear responsibility.
 
-### Bronze (Raw)
+## Bronze (Raw)
 
 **Purpose**
 - Store transactions “as received” with minimal transformation
@@ -78,7 +90,7 @@ The pipeline follows a lakehouse pattern where each layer has a clear responsibi
 
 ---
 
-### Silver (Clean & Validated)
+## Silver (Clean & Validated)
 
 **Purpose**
 - Standardize schema and datatypes
@@ -92,7 +104,7 @@ The pipeline follows a lakehouse pattern where each layer has a clear responsibi
 
 ---
 
-### Gold (Curated & Analytics-Ready)
+## Gold (Curated & Analytics-Ready)
 
 **Purpose**
 - Create business-friendly datasets and aggregations for analytics and BI
@@ -102,9 +114,6 @@ The pipeline follows a lakehouse pattern where each layer has a clear responsibi
 - Account/customer-level summaries
 - Error/invalid transaction metrics
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 ### Notes
 
@@ -112,13 +121,12 @@ The pipeline follows a lakehouse pattern where each layer has a clear responsibi
 - **Silver** should contain cleaned and validated records
 - **Gold** should contain curated outputs ready for analytics and BI
 
-For deeper implementation details, see the code in this repo.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 
-## Data Quality & Validation
+# Data Quality & Validation
 
 The pipeline applies checks to prevent bad data from reaching curated datasets.
 
@@ -132,7 +140,6 @@ The pipeline applies checks to prevent bad data from reaching curated datasets.
 
 These checks keep the Silver and Gold layers consistent and trustworthy for downstream analytics.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 
@@ -149,11 +156,9 @@ s3://<bucket>/
 
 Gold-layer datasets are structured to support:
 
-Business intelligence tools (Tableau / Power BI)
-
-Ad-hoc querying (Spark SQL / DuckDB)
-
-Downstream analytics and metric definitions
+- Business intelligence tools (Tableau / Power BI)
+- Ad-hoc querying (Spark SQL / DuckDB)
+- Downstream analytics and metric definitions
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -167,7 +172,6 @@ Downstream analytics and metric definitions
  - Add CDC-style ingestion simulation
 
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## License
 
