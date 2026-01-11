@@ -10,7 +10,8 @@
 <h2 align="center">Banking Transaction Pipeline <br> (Python • Spark • S3)</h2>
 
 <p align="center">
-  <img height="250" src="https://git.camcodes.dev/Cameron/Banking_Data_Pipeline/raw/branch/main/images/Banking.jpg" alt="Banking pipeline" />
+  <img height="250" alt="image" src="https://github.com/user-attachments/assets/ecfd3197-9a86-4976-84a9-b48f263a46f7" />
+
 </p>
 
 
@@ -184,7 +185,7 @@ Gold-layer datasets are structured to support:
 <a id="license"></a>
 ## License
 
-Distributed under the MIT License. See [LICENSE.txt](https://git.camcodes.dev/Cameron/Data_Lab/src/branch/main/LICENSE.txt) for more information.
+Distributed under the MIT License. See [LICENSE.txt](https://github.com/CameronCSS/Banking_Data_Pipeline/blob/main/LICENSE.txtt) for more information.
 
 <a id="contact"></a>
 ## 💬 Connect With Me
