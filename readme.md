@@ -10,7 +10,7 @@
 <h2 align="center">Banking Transaction Pipeline <br> (Python • Spark • S3)</h2>
 
 <p align="center">
-  <img height="250" src="https://git.camcodes.dev/Cameron/Data_Lab/raw/branch/main/images/Banking.jpg" alt="Banking pipeline diagram" />
+  <img height="250" src="https://git.camcodes.dev/Cameron/Banking_Data_Pipeline/src/branch/main/images/Banking.jpg" alt="Banking pipeline diagram" />
 </p>
 
 
